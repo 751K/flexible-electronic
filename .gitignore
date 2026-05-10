@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS resource forks
+._*
+
+# Finder folder metadata
+.Spotlight-V100
+.Trashes
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Python cache, if any
+__pycache__/
+*.py[cod]
