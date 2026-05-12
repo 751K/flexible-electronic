@@ -1,13 +1,14 @@
 Starting Single Run, Sweeps and Corners...
 
-Current time: Fri May  8 10:56:55 2026 
+Current time: Tue May 12 11:16:14 2026 
 Best design point: 1
 Design specs: 
 	Project_top_tb_1	corner	Nominal - 
+	sqrt(integ((getData("in" ?result "noise")**2) 0.05 100))		308.5u
 Design parameters: 
 
 ExplorerRun.0
-Number of points completed: 1
+Number of points completed: 3
 Number of simulation errors: 0
 ExplorerRun.0 completed. 
-Current time: Fri May  8 10:57:01 2026 
+Current time: Tue May 12 11:16:29 2026 

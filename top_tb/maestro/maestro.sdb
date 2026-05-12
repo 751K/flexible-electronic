@@ -31,16 +31,43 @@
 					</option>
 				</tooloptions>
 				<outputs>
-					<output>Gain
+					<output>CC
+						<evalType>point</evalType>
+					</output>
+					<output>Gainp
+						<evalType>point</evalType>
+					</output>
+					<output>abs((VF("/I8/vfbp") / VF("/I8/vfbn")))
+						<evalType>point</evalType>
+					</output>
+					<output>phase((VF("/I8/vfbp") / VF("/vop")))
+						<evalType>point</evalType>
+					</output>
+					<output>gain
+						<evalType>point</evalType>
+					</output>
+					<output>bw
 						<evalType>point</evalType>
 					</output>
 				</outputs>
 				<vars>
 					<var>vb
-						<value>15</value>
+						<value>1</value>
 					</var>
 					<var>VCM
-						<value>10</value>
+						<value>10.2</value>
+					</var>
+					<var>vc
+						<value>1</value>
+					</var>
+					<var>csw
+						<value>2000</value>
+					</var>
+					<var>iw
+						<value>4000 8000 16000</value>
+					</var>
+					<var>lw
+						<value>2000</value>
 					</var>
 				</vars>
 			</test>
