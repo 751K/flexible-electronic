@@ -31,16 +31,7 @@
 					</option>
 				</tooloptions>
 				<outputs>
-					<output>CC
-						<evalType>point</evalType>
-					</output>
 					<output>Gainp
-						<evalType>point</evalType>
-					</output>
-					<output>abs((VF("/I8/vfbp") / VF("/I8/vfbn")))
-						<evalType>point</evalType>
-					</output>
-					<output>phase((VF("/I8/vfbp") / VF("/vop")))
 						<evalType>point</evalType>
 					</output>
 					<output>gain
@@ -54,20 +45,47 @@
 					<var>vb
 						<value>1</value>
 					</var>
-					<var>VCM
-						<value>10.2</value>
-					</var>
 					<var>vc
 						<value>1</value>
 					</var>
-					<var>csw
-						<value>2000</value>
+					<var>VCM
+						<value>22.5:0.1:23.5</value>
 					</var>
-					<var>iw
-						<value>4000 8000 16000</value>
+					<var>CurrentW
+						<value>1k</value>
 					</var>
-					<var>lw
-						<value>2000</value>
+					<var>cw
+						<value>1k</value>
+					</var>
+					<var>cl
+						<value>300</value>
+					</var>
+					<var>CurrentL
+						<value>300</value>
+					</var>
+					<var>InputW
+						<value>25k</value>
+					</var>
+					<var>LoadW
+						<value>3.2k</value>
+					</var>
+					<var>LevelW
+						<value>12k</value>
+					</var>
+					<var>PW
+						<value>8k</value>
+					</var>
+					<var>InputL
+						<value>180</value>
+					</var>
+					<var>LoadL
+						<value>620</value>
+					</var>
+					<var>LevelL
+						<value>200</value>
+					</var>
+					<var>PL
+						<value>200</value>
 					</var>
 				</vars>
 			</test>
@@ -121,6 +139,35 @@
 			<copyreferenceresults>1</copyreferenceresults>
 		</incrementalsimsetup>
 		<overwritehistoryname>ExplorerRun.0</overwritehistoryname>
+		<specs>
+			<spec>Project_top_tb_1.gain
+				<testname>Project_top_tb_1</testname>
+				<resname>gain</resname>
+				<specType>gt</specType>
+				<min>20</min>
+				<max></max>
+				<target></target>
+				<tol></tol>
+			</spec>
+			<spec>Project_top_tb_1.bw
+				<testname>Project_top_tb_1</testname>
+				<resname>bw</resname>
+				<specType>gt</specType>
+				<min>100</min>
+				<max></max>
+				<target></target>
+				<tol></tol>
+			</spec>
+			<spec>Project_top_tb_1.Noise
+				<testname>Project_top_tb_1</testname>
+				<resname>Noise</resname>
+				<specType>lt</specType>
+				<min></min>
+				<max>44.5u</max>
+				<target></target>
+				<tol></tol>
+			</spec>
+		</specs>
 	</active>
 	<history>History
 	</history>
