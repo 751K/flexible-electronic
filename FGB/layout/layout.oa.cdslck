@@ -12,5 +12,5 @@ ProcessCreationTime_Readable   Sun Jun 14 16:53:35 2026 CEST
 AppIdentifier                  OA File System Design Manager
 OSType                         unix
 ReasonForPlacingEditLock       OpenAccess edit lock
-FilePathUsedToEditLock         /home/daraina/20252432/Cadence_5LFJ0/flexible-electronic-master/flexible-electronic-master/FGB/schematic/sch.oa.cdslck.dirlck
-TimeEditLocked                 Sun Jun 14 18:26:25 2026 CEST
+FilePathUsedToEditLock         /home/daraina/20252432/Cadence_5LFJ0/flexible-electronic-master/flexible-electronic-master/FGB/layout/layout.oa.cdslck
+TimeEditLocked                 Sun Jun 14 18:09:06 2026 CEST
