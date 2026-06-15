@@ -25,10 +25,13 @@ Ground-truth check (Cadence Spectre, afe_gt/tb_noise.raw/noiseAnal.noise):
 import numpy as np
 from pmos_tft_model import PMOS_TFT
 from ac_mna import _stamp_mos, _stamp_adm
-from ac_solver import ac_solve, _dev_corner
-from topology import AFE_TOPO
+from ac_solver import ac_solve
 
+# solved-node indices (same as ac_mna / ac_solver)
+VOP, VON, VFBP, VFBN, NET20, NET2 = 0, 1, 2, 3, 4, 5
+NN = 6
 GND = ("v", 0.0)
+VDDg = ("v", 0.0)
 CL = 5e-12
 
 
@@ -36,9 +39,9 @@ def _n(i):
     return ("n", i)
 
 
-def device_psd(W, L, Vs, Vd, Vg, freqs, corner=None):
+def device_psd(W, L, Vs, Vd, Vg, freqs):
     """Drain-current noise PSD A^2/Hz over freqs: S_th + S_fl_1Hz/f."""
-    t = PMOS_TFT(W=W, L=L, **(corner or {}))
+    t = PMOS_TFT(W=W, L=L)
     try:
         S_th, S_fl_1 = t.get_noise_psd(Vs, Vd, Vg, frequency=1.0)
     except Exception:
@@ -46,31 +49,53 @@ def device_psd(W, L, Vs, Vd, Vg, freqs, corner=None):
     return S_th + S_fl_1 / freqs, S_th, S_fl_1
 
 
-def noise_analysis(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO):
+def noise_analysis(sizes, bias, freqs):
     # ── 1. DC + small-signal params + gain (reuse the validated AC solver) ──
-    ac = ac_solve(sizes, bias, freqs, corner=corner, x0_guess=x0_guess, topo=topo)
+    ac = ac_solve(sizes, bias, freqs)
     if ac is None:
         return None
     dc = ac["dc_op"]
     ss = ac["ss"]
     Hmag = ac["gains"]                      # |vop-von|/vin_diff at each freq
+    n2, vop, vfb, n20 = dc["net2"], dc["VOP"], dc["vfb"], dc["n20"]
+    VCM, VDD, VB, VC = bias["VCM"], bias["VDD"], bias["VB"], bias["VC"]
 
-    # per-device bias (Vs,Vd,Vg) + AC terminals — DERIVED from the topology.
-    # Noise: inputs carry no signal -> M7/M8 gates are AC ground (drive={}),
-    # so the Y matrix equals the AC Y. Only the RHS (injected noise) differs.
-    node_vals = {nm: dc[nm] for nm in topo.solved}
-    bpts = topo.bias_points(node_vals, bias)
-    devs = topo.ac_devices(drive={})
-    inj = {name: (d, s) for name, d, g, s in devs}   # drain/source for noise injection
-    VOP, VON, NN = topo.idx["VOP"], topo.idx["VON"], topo.n
+    # per-device DC bias (Vs, Vd, Vg) — same mapping as ac_solver
+    bpts = {
+        "M6":  (VDD, n2,  VB),
+        "M7":  (n2,  vop, VCM),
+        "M8":  (n2,  vop, VCM),
+        "M9":  (vop, 0.0, vfb),
+        "M10": (vop, 0.0, vfb),
+        "M11": (VDD, n20, VC),
+        "M12": (n20, vfb, vop),
+        "M13": (n20, vfb, vop),
+        "M14": (vfb, 0.0, 0.0),
+        "M15": (vfb, 0.0, 0.0),
+    }
+    # device (drain, gate, source) for Y stamping — inputs are AC ground
+    devs = [
+        ("M6",  _n(NET2),  GND,        VDDg),
+        ("M7",  _n(VOP),   GND,        _n(NET2)),
+        ("M8",  _n(VON),   GND,        _n(NET2)),
+        ("M9",  GND,       _n(VFBP),   _n(VOP)),
+        ("M10", GND,       _n(VFBN),   _n(VON)),
+        ("M11", _n(NET20), GND,        VDDg),
+        ("M12", _n(VFBN),  _n(VOP),    _n(NET20)),
+        ("M13", _n(VFBP),  _n(VON),    _n(NET20)),
+        ("M14", GND,       GND,        _n(VFBN)),
+        ("M15", GND,       GND,        _n(VFBP)),
+    ]
+    # drain/source terminal of each device for current-noise injection
+    inj = {name: (d, s) for name, d, g, s in devs}
 
     # per-device noise PSD
     psd = {}
     psd_split = {}
-    for name in bpts:
+    for name in bpts_order(sizes):
         W, L = sizes[name]
         Vs, Vd, Vg = bpts[name]
-        S, S_th, S_fl1 = device_psd(W, L, Vs, Vd, Vg, freqs, corner=_dev_corner(corner, name))
+        S, S_th, S_fl1 = device_psd(W, L, Vs, Vd, Vg, freqs)
         psd[name] = S
         psd_split[name] = (S_th, S_fl1)
 

@@ -1,53 +1,66 @@
-# flexible-electronic
+# current_core — 当前 AFE 设计的核心代码快照
 
-## 目标指标
+这是 OTFT ECG AFE 当前**已对 Cadence 校准**的最小自洽代码栈（DC/AC/Noise 三项
+误差 <0.5%，并在 6 组尺寸上交叉验证 gain ±0.01 dB / BW 同点 / IRN ≤1.6%）。
 
-使用 printed Organic Thin-Film Transistors（OTFTs）设计一个用于 ECG sensing 的模拟前端电路（AFE）。ECG 信号由两片 flexible dry electrodes 进行差分采集，并通过 AC-coupled AFE 进行读出和放大。
+4 个文件按 import 关系闭合，直接 `python noise_solver.py` 即可跑（依赖 numpy + scipy）：
 
-### 应用需求
+```
+noise_solver.py ──> ac_solver.py ──> pmos_tft_model.py
+              └──> ac_mna.py    ──> pmos_tft_model.py
+```
 
-| 项目 | 目标 |
-|---|---:|
-| 最低信噪比 SNR | ≥ 18 dB |
-| ECG 检测带宽 | 0.05 Hz – 100 Hz |
-| SNR 计算方式 | 基于采样后的信号计算 |
+## 三个组成部分 ↔ 文件对应
 
-### 电路性能指标
+### 1. PMOS 模型
+- **`pmos_tft_model.py`** — AT_4000TG PMOS-OTFT 的 Verilog-A 等价 Python 模型。
+  内部含接触网络节点 (s1/d1)，`get_Idc` 解端子电流，`get_noise_psd` 给沟道漏电流
+  噪声 PSD（Hooge flicker + thermal），`get_capacitances` 给 Cgs/Cgd。
+  > 关键：AC/噪声用的是**端子** gm/gds（有限差分 `get_Idc`），不是沟道 gm。
 
-| 项目 | 目标 |
-|---|---:|
-| 差分输入信号幅度 | 0.5 mVpeak – 5 mVpeak |
-| 差分 AFE 增益 | ≥ 10 V/V |
-| 差分 AFE 增益，dB 表示 | ≥ 20 dB |
-| AFE 3-dB 带宽 | 至少覆盖 0.05 Hz – 100 Hz |
-| 输出采样频率 | ≥ 200 Hz |
-| 每个输出端负载电容 | 5 pF |
-| 电源电压范围 | VDD − VSS ≤ 40 V |
+### 2. 电路拓扑
+拓扑没有独立文件，而是以**数据**内嵌在求解器里（10 管全差分：M6 尾电流、
+M7/M8 输入对、M9/M10 输出级、M11–M15 交叉耦合正反馈电平移位）：
+- **`ac_solver.py` 的 `residuals()`** — DC 工作点的 KCL 方程 = 直流拓扑（哪管接哪个节点）。
+- **`ac_solver.py` 的 `devs` 列表** — 小信号 `(name, drain, gate, source)` 连接表 = 交流拓扑。
+- **`noise_solver.py` 的 `devs` / `bpts`** — 同一拓扑 + 每管偏置映射（噪声注入用）。
+- 节点编号统一：`VOP=0, VON=1, vfbp=2, vfbn=3, net20=4, net2=5`；负载 CL=5pF。
 
-### 电极模型与 AC 耦合网络
+> 拓扑的文字版/原理图见 `../docs/step2_circuit_topology.md`；
+> Cadence 网表见服务器 `~/afe_gt/tb.scs`（参数化：CurrentW/L→M6, InputW/L→M7/8,
+> LoadW/L→M9/10, LevelW/L→M14/15, PW/PL→M12/13, cw/cl→M11）。
 
-| 项目 | 数值 / 要求 |
-|---|---:|
-| 皮肤-电极界面电阻 REL | 1 MΩ |
-| 皮肤-电极界面电容 CEL | 10 nF |
-| 电极模型 | REL–CEL tank |
-| 输入读出方式 | AC-coupled |
-| AC coupling network | 使用离散无源器件设计 |
+### 3. 求解器
+- **`ac_mna.py`** — 干净的 MNA 小信号 stamp 原语：`_stamp_mos`（VCCS 跨导 + gds + Cgs/Cgd）、
+  `_stamp_adm`（导纳）。整个栈的小信号引擎。
+- **`ac_solver.py`** — 全电路 DC（scipy.fsolve 解 6 节点）+ AC（逐频点解 6 节点 MNA）。
+  返回增益曲线、-3dB BW、DC 工作点、每管端子小信号参数 `ss`。
+- **`noise_solver.py`** — 在 *同一个* AC MNA 上做噪声传播（Spectre 同款方法）：
+  每管漏电流噪声 PSD 注在 drain/source，读到差分输出的转移阻抗 Z_k，
+  输出 PSD = Σ|Z_k|²·S_id,k，再除以增益折算到输入得 IRN。
+  > 噪声 MNA = AC MNA：噪声分析时输入无信号，M7/M8 栅是 AC 地，Y 矩阵与 AC 完全相同。
 
-### 工艺与器件约束
+## 快速使用
 
-| 项目 |              数值 / 要求 |
-|---|---------------------:|
-| 设计环境 |     Cadence Virtuoso |
-| TFT 工艺 |            AT_4000TG |
-| 可用晶体管 |             pmos_TFT |
-| TFT 沟道长度 L |   10 µm ≤ L ≤ 800 µm |
-| TFT 沟道宽度 W | 50 µm ≤ W ≤ 50000 µm |
-| 可用电容 |  MIM capacitor，`cap` |
-| MIM 电容范围 |  500 fF ≤ C ≤ 200 pF |
+```python
+import numpy as np
+from noise_solver import noise_analysis, band_rms
+from ac_solver import ac_solve
 
-### 鲁棒性与良率评估
+sizes = {  # (W, L) in um
+    "M6": (3000,150), "M7": (25000,150), "M8": (25000,150),
+    "M9": (12000,500), "M10": (12000,500), "M11": (300,100),
+    "M12": (500,80), "M13": (500,80), "M14": (2000,500), "M15": (2000,500),
+}
+bias  = {"VDD":40.0, "VCM":32.0, "VB":20.0, "VC":26.0}
+freqs = np.logspace(-2, 4, 121)
 
-设计需要在 typical、slow 和 fast 工艺角下进行验证，并结合 mismatch 进行 500-point Monte Carlo 仿真。
+ac = ac_solve(sizes, bias, freqs)              # gain / BW / DC op
+r  = noise_analysis(sizes, bias, freqs)        # 噪声谱 + IRN
+irn = band_rms(freqs, r["irn_psd"], 0.05, 100) # 等效输入噪声 [Vrms]
+```
 
-如果某个仿真点中一个或多个性能指标相对于目标规格偏差超过 20%，则该点被判定为 fail；否则判定为 pass。pass 点数占总仿真点数的比例定义为 yield。
+## 当前结论（截至 2026-05-29）
+当前尺寸下：gain 19.96 dB ✅，但 **BW 50 Hz（规格 ≥100Hz，欠 2×）❌**、
+**IRN 209 µV（规格 ≤44.5µV，欠 4.7×）❌**。且降噪要增大 WL → 节点电容 ∝ WL →
+带宽进一步下降，二者在该拓扑下**直接冲突**，纯尺寸无可行解。详见 `../docs/design_state.md`。
