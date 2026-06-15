@@ -25,7 +25,7 @@ Ground-truth check (Cadence Spectre, afe_gt/tb_noise.raw/noiseAnal.noise):
 import numpy as np
 from pmos_tft_model import PMOS_TFT
 from ac_mna import _stamp_mos, _stamp_adm
-from ac_solver import ac_solve, _dev_corner
+from ac_solver import ac_solve, _dev_corner, _dev_nf
 from topology import AFE_TOPO
 
 GND = ("v", 0.0)
@@ -36,9 +36,9 @@ def _n(i):
     return ("n", i)
 
 
-def device_psd(W, L, Vs, Vd, Vg, freqs, corner=None):
+def device_psd(W, L, Vs, Vd, Vg, freqs, corner=None, nf=1):
     """Drain-current noise PSD A^2/Hz over freqs: S_th + S_fl_1Hz/f."""
-    t = PMOS_TFT(W=W, L=L, **(corner or {}))
+    t = PMOS_TFT(W=W, L=L, NF=nf, **(corner or {}))
     try:
         S_th, S_fl_1 = t.get_noise_psd(Vs, Vd, Vg, frequency=1.0)
     except Exception:
@@ -46,9 +46,9 @@ def device_psd(W, L, Vs, Vd, Vg, freqs, corner=None):
     return S_th + S_fl_1 / freqs, S_th, S_fl_1
 
 
-def noise_analysis(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO):
+def noise_analysis(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO, nf=None):
     # ── 1. DC + small-signal params + gain (reuse the validated AC solver) ──
-    ac = ac_solve(sizes, bias, freqs, corner=corner, x0_guess=x0_guess, topo=topo)
+    ac = ac_solve(sizes, bias, freqs, corner=corner, x0_guess=x0_guess, topo=topo, nf=nf)
     if ac is None:
         return None
     dc = ac["dc_op"]
@@ -70,7 +70,8 @@ def noise_analysis(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO
     for name in bpts:
         W, L = sizes[name]
         Vs, Vd, Vg = bpts[name]
-        S, S_th, S_fl1 = device_psd(W, L, Vs, Vd, Vg, freqs, corner=_dev_corner(corner, name))
+        S, S_th, S_fl1 = device_psd(W, L, Vs, Vd, Vg, freqs,
+                                    corner=_dev_corner(corner, name), nf=_dev_nf(nf, name))
         psd[name] = S
         psd_split[name] = (S_th, S_fl1)
 

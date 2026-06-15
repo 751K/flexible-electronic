@@ -25,6 +25,18 @@ def _dev_corner(corner, name):
     return corner                                             # global shift
 
 
+def _dev_nf(nf, name):
+    """Resolve NF (number of fingers) for one device. nf may be None (->1),
+    an int (global), or a per-device map {'M7':120,...} (missing -> 1).
+    NF doesn't change Idc/gm (current ∝ total W/L) but DOES change the gate
+    capacitances (Cgs/Cgd via finger geometry), hence BW and the cap part of noise."""
+    if not nf:
+        return 1
+    if isinstance(nf, dict):
+        return int(nf.get(name, 1))
+    return int(nf)
+
+
 def _symmetric_seed(sizes, bias, Id, gmin, seeds=None):
     """AFE-specific symmetric DC solve (matched halves: VON=VOP, VFBN=VFBP). 4 unknowns
     [net2, vop, vfb, net20]. Used as a POST-PROCESS guard: when the full 6-node solve
@@ -94,7 +106,7 @@ def _symmetric_continuation(sizes, bias, Id, gmin):
     return {"VOP": vop, "VON": vop, "VFBP": vfb, "VFBN": vfb, "NET20": n20, "NET2": n2}
 
 
-def get_ss_params(W, L, Vs, Vd, Vg, corner=None):
+def get_ss_params(W, L, Vs, Vd, Vg, corner=None, nf=1):
     """Small-signal parameters at a DC operating point.
 
     gm/gds are the *terminal* values, extracted by finite-differencing the full
@@ -105,7 +117,7 @@ def get_ss_params(W, L, Vs, Vd, Vg, corner=None):
 
     corner: optional dict of model process shifts, e.g. {'pvt0':.., 'pbeta0':..}.
     """
-    t = PMOS_TFT(W=W, L=L, **(corner or {}))
+    t = PMOS_TFT(W=W, L=L, NF=nf, **(corner or {}))
     h = 1e-3
     try:
         Id = lambda vs, vd, vg: t.get_Idc(vs, vd, vg)
@@ -119,7 +131,7 @@ def get_ss_params(W, L, Vs, Vd, Vg, corner=None):
         return {"gm": 0, "gds": 1e-12, "Cgs": 0, "Cgd": 0, "Ich": 0}
 
 
-def ac_solve(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO):
+def ac_solve(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO, nf=None):
     """
     Full small-signal AC analysis — topology supplied by `topo` (default AFE_TOPO).
 
@@ -140,7 +152,8 @@ def ac_solve(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO):
     def Id(name, Vs, Vd, Vg):
         W, L = sizes[name]
         try:
-            return abs(PMOS_TFT(W=W, L=L, **_dev_corner(corner, name)).get_Idc(Vs, Vd, Vg))
+            return abs(PMOS_TFT(W=W, L=L, NF=_dev_nf(nf, name),
+                                **_dev_corner(corner, name)).get_Idc(Vs, Vd, Vg))
         except Exception:
             return 1e-18
 
@@ -263,7 +276,7 @@ def ac_solve(sizes, bias, freqs, corner=None, x0_guess=None, topo=AFE_TOPO):
 
     # ── 2. Small-signal params at the true per-device DC op ──
     ss = {name: get_ss_params(sizes[name][0], sizes[name][1], *bpts[name],
-                              corner=_dev_corner(corner, name))
+                              corner=_dev_corner(corner, name), nf=_dev_nf(nf, name))
           for name, *_ in topo.devices}
 
     # ── 3. Build & solve the small-signal MNA (terminals from the topology) ──
