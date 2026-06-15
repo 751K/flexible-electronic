@@ -1,0 +1,51 @@
+#
+# OPTION COMMAND FILE created byCadence Quantus Extraction Version 23.1.1-p051 from CCL
+#
+capacitance \
+	 -decoupling_factor 1.0 \
+	 -ground_net "gnd!"
+extract \
+	 -selection "all" \
+	 -type "rc_decoupled"
+extraction_setup \
+	 -array_vias_spacing "auto" \
+	 -macro_cells_type "default" \
+	 -max_fracture_length infinite \
+	 -max_fracture_length_unit "MICRONS" \
+	 -max_via_array_size \
+		"auto" \
+	 -net_name_space "SCHEMATIC" \
+	 -split_via_by_unit_area false
+filter_res \
+	 -merge_parallel_res false \
+	 -min_res 0.001
+input_db -type assura \
+	 -design_cell_name "FGB layout flexible" \
+	 -directory_name "/home/daraina/20252432/Cadence_5LFJ0" \
+	 -format "DFII" \
+	 -library_definitions_file "/home/daraina/20252432/Cadence_5LFJ0/cds.lib" \
+	 -run_name "FGB"
+log_file \
+	 -file_name "/home/daraina/20252432/Cadence_5LFJ0/qrc.FGB.log"
+output_db -type extracted_view \
+	 -cap_component "pcapacitor" \
+	 -cap_property_name "c" \
+	 -enable_cellview_check false \
+	 -include_cap_model "true" \
+	 -include_parasitic_cap_model "false" \
+	 -include_parasitic_res_model "comment" \
+	 -include_parasitic_res_width true \
+	 -include_res_model "true" \
+	 -res_component "presistor" \
+	 -res_property_name "r" \
+	 -view_name "av_extracted"
+output_setup \
+	 -directory_name "/home/daraina/20252432/Cadence_5LFJ0" \
+	 -temporary_directory_name "FGB"
+process_technology \
+	 -technology_directory \
+		"/cadappl_sde/iclibs/AT_4000TG/AT_4000TG/Assura/qrc" \
+	 -temperature \
+		"25.0"
+
+
